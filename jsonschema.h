@@ -2,7 +2,6 @@
 #define JSONSCHEMA_H
 
 #include <QJsonObject>
-#include <QJsonValue>
 #include <QString>
 
 class JsonSchemaValidator {

@@ -1,13 +1,15 @@
 #include "scriptengine.h"
 #include <QThread>
 #include <QFile>
+#include <QTimer>
 #include "logger.h"
 #include "gpib_config.h"
 
 ScriptEngine::ScriptEngine(QObject *parent) : QObject(parent) {
-    // Expõe este objeto como "gpib"
     QJSValue obj = engine_.newQObject(this);
     engine_.globalObject().setProperty("gpib", obj);
+
+    // connect(&asyncWatcher_, ...) mantido, mas não será usado na nova implementação
 }
 
 void ScriptEngine::executarScript(const QString& script) {
@@ -17,6 +19,14 @@ void ScriptEngine::executarScript(const QString& script) {
         Logger::instance().error(err);
         emit scriptOutput(err);
     }
+}
+
+void ScriptEngine::executarScriptAsync(const QString& script) {
+    // MELHORIA: executar na thread principal via QMetaObject para garantir segurança do QJSEngine
+    QMetaObject::invokeMethod(this, [this, script]() {
+        executarScript(script);
+        emit scriptFinished();
+    }, Qt::QueuedConnection);
 }
 
 void ScriptEngine::executarArquivo(const QString& caminho) {
@@ -29,9 +39,9 @@ void ScriptEngine::executarArquivo(const QString& caminho) {
     executarScript(script);
 }
 
-QString ScriptEngine::enviarComando(int endereco, const QString& cmd) {
+QString ScriptEngine::enviarComando(int endereco, int placa, const QString& cmd) {
     try {
-        auto instr = obterInstrumento(endereco);
+        auto instr = obterInstrumento(endereco, placa);
         instr->enviar(cmd.toStdString());
         return "";
     } catch (const std::exception& e) {
@@ -39,9 +49,9 @@ QString ScriptEngine::enviarComando(int endereco, const QString& cmd) {
     }
 }
 
-QString ScriptEngine::consultar(int endereco, const QString& query) {
+QString ScriptEngine::consultar(int endereco, int placa, const QString& query) {
     try {
-        auto instr = obterInstrumento(endereco);
+        auto instr = obterInstrumento(endereco, placa);
         return QString::fromStdString(instr->query(query.toStdString()));
     } catch (const std::exception& e) {
         return QString("Erro: %1").arg(e.what());
@@ -57,6 +67,6 @@ void ScriptEngine::log(const QString& msg) {
     emit scriptOutput(msg);
 }
 
-std::shared_ptr<Gpib::InstrumentoMestre> ScriptEngine::obterInstrumento(int endereco) {
-    return Gpib::GpibManager::instance().getInstrumento(endereco);
+std::shared_ptr<Gpib::InstrumentoMestre> ScriptEngine::obterInstrumento(int endereco, int placa) {
+    return Gpib::GpibManager::instance().getInstrumento(endereco, placa);
 }

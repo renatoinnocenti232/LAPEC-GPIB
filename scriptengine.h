@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QJSEngine>
+#include <QFutureWatcher>
 #include "gpib_config.h"
 
 class ScriptEngine : public QObject {
@@ -11,20 +12,27 @@ public:
     explicit ScriptEngine(QObject *parent = nullptr);
 
     // Expõe funções para JavaScript
-    Q_INVOKABLE QString enviarComando(int endereco, const QString& cmd);
-    Q_INVOKABLE QString consultar(int endereco, const QString& query);
+    Q_INVOKABLE QString enviarComando(int endereco, int placa, const QString& cmd);
+    Q_INVOKABLE QString consultar(int endereco, int placa, const QString& query);
     Q_INVOKABLE void aguardar(int ms);
     Q_INVOKABLE void log(const QString& msg);
 
-    void executarScript(const QString& script);
+    // Execução assíncrona (agora segura para QJSEngine)
+    void executarScriptAsync(const QString& script);
+    void executarScript(const QString& script); // síncrono na thread atual (cuidado)
     void executarArquivo(const QString& caminho);
 
 signals:
     void scriptOutput(const QString& text);
+    void scriptFinished();
+
+private slots:
+    void onAsyncFinished();
 
 private:
     QJSEngine engine_;
-    std::shared_ptr<Gpib::InstrumentoMestre> obterInstrumento(int endereco);
+    QFutureWatcher<void> asyncWatcher_;  // não usado mais com a nova abordagem, mas mantido para compatibilidade
+    std::shared_ptr<Gpib::InstrumentoMestre> obterInstrumento(int endereco, int placa);
 };
 
-#endif
+#endif // SCRIPTENGINE_H

@@ -49,6 +49,13 @@ void AppSettings::setUltimoEndereco(int addr) {
     settings_.setValue("ultimoEndereco", addr);
 }
 
+int AppSettings::ultimaPlaca() const {
+    return settings_.value("ultimaPlaca", 0).toInt();
+}
+void AppSettings::setUltimaPlaca(int board) {
+    settings_.setValue("ultimaPlaca", board);
+}
+
 bool AppSettings::autoConectar() const {
     return settings_.value("autoConectar", true).toBool();
 }
@@ -61,4 +68,53 @@ int AppSettings::intervaloLeituraMs() const {
 }
 void AppSettings::setIntervaloLeituraMs(int ms) {
     settings_.setValue("intervaloLeituraMs", ms);
+}
+
+bool AppSettings::exportarCSVComCabecalho() const {
+    return settings_.value("exportarCSVComCabecalho", true).toBool();
+}
+void AppSettings::setExportarCSVComCabecalho(bool enable) {
+    settings_.setValue("exportarCSVComCabecalho", enable);
+}
+
+bool AppSettings::apiHabilitada() const {
+    return settings_.value("apiHabilitada", false).toBool();
+}
+void AppSettings::setApiHabilitada(bool enable) {
+    settings_.setValue("apiHabilitada", enable);
+}
+
+bool AppSettings::apiApenasLocalhost() const {
+    return settings_.value("apiApenasLocalhost", true).toBool();
+}
+void AppSettings::setApiApenasLocalhost(bool enable) {
+    settings_.setValue("apiApenasLocalhost", enable);
+}
+
+QString AppSettings::apiKey() const {
+    return settings_.value("apiKey", "").toString();
+}
+void AppSettings::setApiKey(const QString& key) {
+    settings_.setValue("apiKey", key);
+}
+
+quint16 AppSettings::apiPortaWebSocket() const {
+    return static_cast<quint16>(settings_.value("apiPortaWebSocket", 12345).toUInt());
+}
+void AppSettings::setApiPortaWebSocket(quint16 port) {
+    settings_.setValue("apiPortaWebSocket", port);
+}
+
+quint16 AppSettings::apiPortaRest() const {
+    return static_cast<quint16>(settings_.value("apiPortaRest", 8080).toUInt());
+}
+void AppSettings::setApiPortaRest(quint16 port) {
+    settings_.setValue("apiPortaRest", port);
+}
+
+QString AppSettings::ultimoScript() const {
+    return settings_.value("ultimoScript", "").toString();
+}
+void AppSettings::setUltimoScript(const QString& path) {
+    settings_.setValue("ultimoScript", path);
 }

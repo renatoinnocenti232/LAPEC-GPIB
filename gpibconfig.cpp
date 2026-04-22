@@ -1,8 +1,14 @@
+/**
+ * @file gpib_config.cpp
+ * @brief Implementação das classes de comunicação GPIB.
+ */
+
 #include "gpib_config.h"
-#include "gpib.h"
 #include <sstream>
 #include <algorithm>
 #include <cstring>
+#include <thread>
+#include <chrono>
 
 namespace Gpib {
 
@@ -13,7 +19,6 @@ namespace Gpib {
         if (ibsta & TIMO) {
             throw TimeoutException(oss.str());
         } else if (ibsta & ERR) {
-            // Refinamento baseado no código de erro
             if (iberr == EDVR || iberr == ENEB || iberr == EHDL)
                 throw ConnectionException(oss.str());
             else
@@ -48,15 +53,37 @@ namespace Gpib {
     }
 
     // ---------- Varredura de barramento ----------
-    std::vector<short> InstrumentoMestre::VarrerBarramento(int placa) {
+    std::vector<short> InstrumentoMestre::VarrerBarramento(int placa, int timeoutMs) {
+        // Configura timeout temporário para a varredura
+        int oldTmo = ibtmo(placa, static_cast<int>(Timeout::T10s));
+        if (timeoutMs > 0) {
+            // Mapear ms para enum Timeout (aproximado)
+            Timeout tmo;
+            if (timeoutMs <= 1) tmo = Timeout::T1ms;
+            else if (timeoutMs <= 3) tmo = Timeout::T3ms;
+            else if (timeoutMs <= 10) tmo = Timeout::T10ms;
+            else if (timeoutMs <= 30) tmo = Timeout::T30ms;
+            else if (timeoutMs <= 100) tmo = Timeout::T100ms;
+            else if (timeoutMs <= 300) tmo = Timeout::T300ms;
+            else if (timeoutMs <= 1000) tmo = Timeout::T1s;
+            else if (timeoutMs <= 3000) tmo = Timeout::T3s;
+            else if (timeoutMs <= 10000) tmo = Timeout::T10s;
+            else if (timeoutMs <= 30000) tmo = Timeout::T30s;
+            else tmo = Timeout::T30s;
+            ibtmo(placa, static_cast<int>(tmo));
+        }
+
         short addr_list[32], results[32];
         for (short i = 0; i < 31; ++i) addr_list[i] = i + 1;
         addr_list[31] = -1;
 
         FindLstn(placa, addr_list, results, 31);
         if (ibsta & ERR) {
+            ibtmo(placa, oldTmo); // restaura timeout
             throwFromIbsta("FindLstn");
         }
+        ibtmo(placa, oldTmo); // restaura timeout
+
         std::vector<short> lista;
         for (int i = 0; results[i] != -1 && i < 31; ++i) {
             lista.push_back(results[i]);
@@ -78,6 +105,7 @@ namespace Gpib {
         ibrd(handle_, buffer.data(), static_cast<long>(tamanho));
         validar("Leitura");
         std::string s(buffer.data(), ibcntl);
+        // Remove caracteres de controle comuns
         s.erase(std::remove_if(s.begin(), s.end(), [](char c){ return c=='\r'||c=='\n'; }), s.end());
         return s;
     }
@@ -86,7 +114,7 @@ namespace Gpib {
         return enviar(cmd).ler();
     }
 
-    // ---------- Serial Poll (2.1) ----------
+    // ---------- Serial Poll ----------
     uint8_t InstrumentoMestre::lerStatusByte() {
         std::lock_guard<std::mutex> lock(mtx_);
         char spr;
@@ -95,7 +123,7 @@ namespace Gpib {
         return static_cast<uint8_t>(spr);
     }
 
-    // ---------- Espera por eventos (2.2) ----------
+    // ---------- Espera por eventos ----------
     bool InstrumentoMestre::esperarEvento(unsigned short mascara) {
         std::lock_guard<std::mutex> lock(mtx_);
         ibwait(handle_, mascara);
@@ -107,7 +135,7 @@ namespace Gpib {
         return esperarEvento(static_cast<unsigned short>(Evento::SRQ));
     }
 
-    // ---------- Send/Receive 488.2 (2.3) ----------
+    // ---------- Send/Receive 488.2 ----------
     void InstrumentoMestre::enviarPara(int placa, int endereco, const std::string& dados, bool eoi) {
         int eotMode = eoi ? DABend : NULLend;
         Send(placa, endereco, const_cast<char*>(dados.c_str()), static_cast<long>(dados.size()), eotMode);
@@ -130,7 +158,7 @@ namespace Gpib {
         return std::string(buffer.data(), ibcntl);
     }
 
-    // ---------- Parallel Poll (2.4) ----------
+    // ---------- Parallel Poll ----------
     void InstrumentoMestre::configurarParallelPoll(int placa, int endereco, int dataLine, bool sense) {
         PPollConfig(placa, endereco, dataLine, sense ? 1 : 0);
         if (ibsta & ERR) {
@@ -156,7 +184,7 @@ namespace Gpib {
         }
     }
 
-    // ---------- Pass Control (2.5) ----------
+    // ---------- Pass Control ----------
     void InstrumentoMestre::passarControle(int placa, int endereco) {
         PassControl(placa, endereco);
         if (ibsta & ERR) {
@@ -164,7 +192,7 @@ namespace Gpib {
         }
     }
 
-    // ---------- Configuração de EOS / EOI (2.6) ----------
+    // ---------- Configuração de EOS / EOI ----------
     void InstrumentoMestre::definirEOS(uint8_t eosChar, bool terminarLeitura, bool enviarEOI, bool cmp8bits) {
         std::lock_guard<std::mutex> lock(mtx_);
         int modo = eosChar;
@@ -181,14 +209,14 @@ namespace Gpib {
         validar("ibeot");
     }
 
-    // ---------- Timeout dinâmico (2.7) ----------
+    // ---------- Timeout dinâmico ----------
     void InstrumentoMestre::definirTimeout(Timeout tmo) {
         std::lock_guard<std::mutex> lock(mtx_);
         ibtmo(handle_, static_cast<int>(tmo));
         validar("ibtmo");
     }
 
-    // ---------- Configuração genérica e DMA (2.8) ----------
+    // ---------- Configuração genérica e DMA ----------
     int InstrumentoMestre::configurar(ConfigOption opcao, unsigned int valor) {
         std::lock_guard<std::mutex> lock(mtx_);
         ibconfig(handle_, static_cast<unsigned int>(opcao), valor);
@@ -202,7 +230,7 @@ namespace Gpib {
         validar("ibdma");
     }
 
-    // ========== GpibManager (gerenciamento de múltiplos instrumentos) ==========
+    // ========== GpibManager ==========
     GpibManager& GpibManager::instance() {
         static GpibManager mgr;
         return mgr;

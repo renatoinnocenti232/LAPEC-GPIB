@@ -9,9 +9,11 @@
 class WebSocketServer : public QObject {
     Q_OBJECT
 public:
-    explicit WebSocketServer(quint16 port = 12345, QObject *parent = nullptr);
+    explicit WebSocketServer(quint16 port = 12345, bool localhostOnly = false, QObject *parent = nullptr);
     bool iniciar();
     void parar();
+    void setApiKey(const QString& key);
+    void setLocalhostOnly(bool enable);
 
 signals:
     void mensagemRecebida(const QString& mensagem);
@@ -23,8 +25,12 @@ private slots:
 
 private:
     QWebSocketServer *server_;
-    QList<QWebSocket*> clients_;
+    QList<QWebSocket*> clients_;  // mantido, mas com gerenciamento seguro via deleteLater
+    QString apiKey_;
+    bool localhostOnly_ = false;
+
     void processarComando(QWebSocket *client, const QJsonObject& obj);
+    bool autenticar(QWebSocket *client, const QJsonObject& obj);
 };
 
-#endif
+#endif // WEBSOCKETSERVER_H

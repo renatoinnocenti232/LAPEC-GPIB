@@ -23,16 +23,39 @@ public:
 
     int ultimoEndereco() const;
     void setUltimoEndereco(int addr);
+    int ultimaPlaca() const;
+    void setUltimaPlaca(int board);
 
-    // Outras preferências
+    // Preferências gerais
     bool autoConectar() const;
     void setAutoConectar(bool enable);
     int intervaloLeituraMs() const;
     void setIntervaloLeituraMs(int ms);
+    bool exportarCSVComCabecalho() const;
+    void setExportarCSVComCabecalho(bool enable);
+
+    // Configurações da API
+    bool apiHabilitada() const;
+    void setApiHabilitada(bool enable);
+    bool apiApenasLocalhost() const;
+    void setApiApenasLocalhost(bool enable);
+    QString apiKey() const;
+    void setApiKey(const QString& key);
+    quint16 apiPortaWebSocket() const;
+    void setApiPortaWebSocket(quint16 port);
+    quint16 apiPortaRest() const;
+    void setApiPortaRest(quint16 port);
+
+    // Caminhos recentes
+    QString ultimoScript() const;
+    void setUltimoScript(const QString& path);
+
+    // MELHORIA: sincronização explícita para evitar escritas excessivas
+    void sync();
 
 private:
     AppSettings();
     QSettings settings_;
 };
 
-#endif
+#endif // APPSETTINGS_H

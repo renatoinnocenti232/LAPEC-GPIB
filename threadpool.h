@@ -1,18 +1,30 @@
-#ifndef THREADPOOL_H
-#define THREADPOOL_H
+/**
+ * @file threadpool.h
+ * @brief Pool de threads global para operações assíncronas.
+ */
+
+#pragma once
 
 #include <QObject>
-#include <QRunnable>
 #include <QThreadPool>
 #include <QFuture>
 #include <QtConcurrent/QtConcurrent>
 
+/**
+ * @brief Singleton que fornece um QThreadPool compartilhado.
+ * 
+ * Evita a criação excessiva de threads e permite limitar concorrência.
+ */
 class GpibThreadPool : public QObject {
     Q_OBJECT
 public:
     static GpibThreadPool& instance();
 
-    // Executa uma função em uma thread do pool e retorna QFuture
+    /**
+     * @brief Executa uma função no pool de threads.
+     * @param f Função a executar.
+     * @return QFuture com o resultado da função.
+     */
     template<typename Func>
     auto run(Func f) -> QFuture<decltype(f())> {
         return QtConcurrent::run(&pool_, f);
@@ -25,5 +37,3 @@ private:
     GpibThreadPool() { pool_.setMaxThreadCount(QThread::idealThreadCount()); }
     QThreadPool pool_;
 };
-
-#endif // THREADPOOL_H

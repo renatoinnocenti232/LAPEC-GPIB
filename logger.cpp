@@ -7,7 +7,6 @@ Logger& Logger::instance() {
 }
 
 Logger::Logger() {
-    // Por padrão, loga apenas em console
     stream_.setString(nullptr);
 }
 
@@ -39,14 +38,12 @@ void Logger::log(Level level, const QString& message) {
                         .arg(levelToString(level))
                         .arg(message);
     
-    // Saída no console (stderr para erros)
     if (level == Level::Error) {
         qCritical().noquote() << formatted;
     } else {
         qDebug().noquote() << formatted;
     }
 
-    // Arquivo
     if (logFile_.isOpen()) {
         stream_ << formatted << Qt::endl;
     }

@@ -1,15 +1,24 @@
 #include "jsonschema.h"
 
 bool JsonSchemaValidator::validateCommand(const QJsonObject& obj, QString& error) {
-    // Esquema básico: deve conter "command" (string)
     if (!obj.contains("command") || !obj["command"].isString()) {
         error = "Campo 'command' ausente ou inválido.";
         return false;
     }
     QString cmd = obj["command"].toString();
-    if (cmd == "write" || cmd == "query" || cmd == "read") {
+    if (cmd == "write" || cmd == "query" || cmd == "read" || cmd == "batch") {
         if (!obj.contains("address") || !obj["address"].isDouble()) {
             error = "Campo 'address' (número) obrigatório.";
+            return false;
+        }
+        int addr = obj["address"].toInt();
+        if (addr < 0 || addr > 30) {
+            error = "Endereço GPIB deve estar entre 0 e 30.";
+            return false;
+        }
+        // board é opcional, mas se presente deve ser número
+        if (obj.contains("board") && !obj["board"].isDouble()) {
+            error = "Campo 'board' deve ser número.";
             return false;
         }
         if (cmd == "write" && (!obj.contains("data") || !obj["data"].isString())) {
@@ -20,12 +29,7 @@ bool JsonSchemaValidator::validateCommand(const QJsonObject& obj, QString& error
             error = "Campo 'query' (string) obrigatório para 'query'.";
             return false;
         }
-    } else if (cmd == "batch") {
-        if (!obj.contains("address") || !obj["address"].isDouble()) {
-            error = "Campo 'address' obrigatório.";
-            return false;
-        }
-        if (!obj.contains("commands") || !obj["commands"].isArray()) {
+        if (cmd == "batch" && (!obj.contains("commands") || !obj["commands"].isArray())) {
             error = "Campo 'commands' (array) obrigatório para 'batch'.";
             return false;
         }
